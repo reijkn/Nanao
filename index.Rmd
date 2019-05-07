@@ -1,7 +1,6 @@
 ---
 title: "view"
 date: "2019/5/7"
-output: html_document
 ---
 
 # はじめに
@@ -52,9 +51,11 @@ emergency_nanao <- st_transform(emergency_nanao, 2449)
 sediment_nanao <- st_transform(sediment_nanao, 2449)
 ```
 
-どうやら，Rmarkdownというかウェッブで確認できそう．
+view云々によらないのは，`mapview()`である．
 ```{r}
-tmap_mode('view')
-tm_shape(nanao) +
-  tm_polygons() 
+library(mapview)
+mapview(nanao) +
+  mapview(emergency_nanao,
+          zcol = "N10_004")
+#colnames(emergency_nanao)
 ```
