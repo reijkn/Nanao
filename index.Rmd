@@ -1,18 +1,30 @@
 ---
-title: "view"
+title: "R as a GIS"
 date: "2019/5/7"
 ---
 
 # はじめに
+RをGISとして使う．
+ポリゴンオブジェクト上に位置するラインオブジェクトの延長を算出する．
+それぞれ以下のようにする．
+
+ - ポリゴン：土砂災害警戒区域
+ - ライン：道路
+
+土砂災害警戒区域上に位置する道路を特定し，その延長を計算することで防災政策を立案するうえでの一つの判断材料を与える．
+
+
+# 前準備
+使用するライブラリの読み込み，国土数値情報からのダウンロード，openstreetmapからのダウンロードを行う．
+
+## ライブラリの読み込み
 
 ```{r message=F, error=F, warning=F}
 library(sf)
 library(tidyverse)
 library(tmap)
-tmap_mode("plot")
+library(mapview)
 ```
-
-# 前準備
 
 ## 国土数値情報から
 石川県のやつについて，以下を読み込む．
@@ -23,18 +35,17 @@ tmap_mode("plot")
 
 コードは以下のとおりである．
 ```{r message=F, results=F}
+# 日本語を扱うのでCP932でのエンコードを忘れない
 isikawa <- st_read("N03-170101_17_GML/N03-17_17_170101.shp", options = "ENCODING=CP932", stringsAsFactors=F)
 emergency <- st_read("N10-15_17_GML/N10-15_17.shp", options = "ENCODING=CP932", stringsAsFactors=F)
 sediment <- st_read("A33-17_17_GML/A33-17_17_GML/A33-17_17Polygon.shp", options = "ENCODING=CP932", stringsAsFactors=F)
 ```
 
-`N03_004`を指定すればよさそうである．
+`N03_004`が市町村名に相当する．
+ここを七尾市に指定すればよさそうである．
 ```{r}
 nanao <- isikawa %>%
   filter(N03_004 == "七尾市")
-# 確認のため描画
-tm_shape(nanao) +
-  tm_polygons()
 ```
 
 行政区域を七尾市のみに絞ったものができた．
@@ -51,11 +62,17 @@ emergency_nanao <- st_transform(emergency_nanao, 2449)
 sediment_nanao <- st_transform(sediment_nanao, 2449)
 ```
 
-view云々によらないのは，`mapview()`である．
+`mapview()`を使ってインタラクティブに確認する．
+車線名（国道n号など）に応じて道路の色を変更する．
 ```{r}
-library(mapview)
 mapview(nanao) +
   mapview(emergency_nanao,
           zcol = "N10_004")
 #colnames(emergency_nanao)
 ```
+
+## openstreetmapから
+
+# 土砂災害警戒区域状に限定する
+
+# 距離を算出する
