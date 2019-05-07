@@ -1,0 +1,60 @@
+---
+title: "view"
+date: "2019/5/7"
+output: html_document
+---
+
+# はじめに
+
+```{r message=F, error=F, warning=F}
+library(sf)
+library(tidyverse)
+library(tmap)
+tmap_mode("plot")
+```
+
+# 前準備
+
+## 国土数値情報から
+石川県のやつについて，以下を読み込む．
+
+ - 行政区域：N03~
+ - 緊急輸送道路：N10-15~
+ - 土砂災害警戒区域：A33-17~
+
+コードは以下のとおりである．
+```{r message=F, results=F}
+isikawa <- st_read("N03-170101_17_GML/N03-17_17_170101.shp", options = "ENCODING=CP932", stringsAsFactors=F)
+emergency <- st_read("N10-15_17_GML/N10-15_17.shp", options = "ENCODING=CP932", stringsAsFactors=F)
+sediment <- st_read("A33-17_17_GML/A33-17_17_GML/A33-17_17Polygon.shp", options = "ENCODING=CP932", stringsAsFactors=F)
+```
+
+`N03_004`を指定すればよさそうである．
+```{r}
+nanao <- isikawa %>%
+  filter(N03_004 == "七尾市")
+# 確認のため描画
+tm_shape(nanao) +
+  tm_polygons()
+```
+
+行政区域を七尾市のみに絞ったものができた．
+このポリゴン上で，道路とか土砂災害警戒区域を絞り込む．
+```{r message=F, warning=F}
+emergency_nanao <- st_intersection(nanao, emergency)
+sediment_nanao <- st_intersection(nanao, sediment)
+```
+
+そして投影座標系をEPSG2449とする．
+```{r}
+nanao <- st_transform(nanao, 2449)
+emergency_nanao <- st_transform(emergency_nanao, 2449)
+sediment_nanao <- st_transform(sediment_nanao, 2449)
+```
+
+どうやら，Rmarkdownというかウェッブで確認できそう．
+```{r}
+tmap_mode('view')
+tm_shape(nanao) +
+  tm_polygons() 
+```
