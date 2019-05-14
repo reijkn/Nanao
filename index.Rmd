@@ -72,6 +72,126 @@ mapview(nanao) +
 ```
 
 ## openstreetmapから
+七尾市周辺のbboxについて，以下を読み込む．
+
+ - morotway
+ - trunk
+ - primary
+ - secondary
+ - tertialy
+ - unclassified
+ - residential
+
+openstreetmapのapiをつかう．
+pythonのラッパーがあるので，それを使用する．
+Rからpythonを呼び出すにはこのパッケージをつかう．
+
+bboxの範囲は`(36.964677, 136.772596,37.198499, 137.070257)`である．
+pythonを使う下準備は次の通りとなる．
+
+```{r}
+reticulate::use_python(Sys.which(names = "python"))
+opass <- reticulate::import(module = "overpass")
+api = opass$API() # Rからは$で潜っていく．
+```
+
+たくさん作るので，関数にしておく
+```{r}
+geojson_as_sf <- function(way_attr){
+  # way_attr は文字列
+  bound_box <- "36.964677, 136.772596,37.198499, 137.070257"
+  query_opass <- str_c('way["highway"="',way_attr,'"](',bound_box,');(._;>;)')
+  attr_api <- api$get(query_opass, verbosity = 'geom')
+  way_sf_NodeWay <- st_as_sf(st_read(attr_api))
+  way_sf <- way_sf_NodeWay %>%
+    filter(highway == way_attr)
+  way_sf <- st_transform(way_sf, 2449) # 4326から2449にする
+}
+```
+
+道路属性ごとに異なる`sf`オブジェクトを生成する．
+道路属性を文字列として格納し`geojson` -> `sf` する．
+```{r results=F, warning=F, message=F}
+# やたらと出力が長くなる． message = F だとhtml出力が止まる．
+attr_str <- c("motorway", "trunk", "primary", "secondary", "tertiary", "unclassified", "residential")
+for (i in attr_str) {
+  now_sf <- str_c(i, "_sf")
+  assign(now_sf, geojson_as_sf(i))
+}
+```
+
+バウンディボックスは矩形であり，七尾市の外側の道路も取得している．
+これを七尾市上のみに絞り込む．
+```{r results=F, warning=F, message=F}
+for (i in attr_str) {
+  now_sf <- str_c(i, "_sf")
+  nanao_sf <- str_c(i, "_nanao") # 道路のsfについて 七尾市だけのものをこれに格納する
+  assign(nanao_sf, st_intersection(nanao, get(now_sf))) # nanao_sf <- st_intersection(nanao, atr_sf) とするのをまあ
+}
+
+```
+
+最終的に，全道路属性が1つのデータフレームにまとまっている`sf`オブジェクトを生成する．
+現時点ではまだ，道路属性ごとに異なる`sf`オブジェクトである．
+これを以下の手順でひとまとめにする．
+
+ 1. 道路属性個数分だけある`sf`オブジェクトをデータフレームと`sfc`オブジェクトに分解．
+ 1. 1.で，道路属性個数分のデータフレームができたので，それをひとまとめにする．
+ 1. 1.で，道路属性個数分の`sfc`オブジェクトができたので，それをひとまとめにする．
+ 1. `sf`をつくる．2.でできた1つのデータフレームと，3.でできた1つの`sfc`をくっつける
+
+分解作業，すぐおわる．
+```{r results=F,warning=F, message=F}
+for(i in attr_str){
+  now_nanao <- str_c(i, "_nanao")
+  
+  # データフレームだけを now_df に格納
+  now_df <- str_c(i, "_df")
+  assign(now_df, st_set_geometry(get(now_nanao), NULL))
+  
+  # sfc だけを now_sfc に格納
+  now_sfc <- str_c(i, "_sfc")
+  assign(now_sfc, st_geometry(get(now_nanao)))
+}
+
+```
+
+`bind_row`により，道路属性ごとのデータフレームを下に付け足す．
+```{r results=F,  warning=F, message=F}
+# 格納用のデータフレームを作って，それにバインドしていく
+Road_attr_df <- data.frame()
+for(i in attr_str){
+  now_df <- get(str_c(i, "_df")) # ここでget()すれば1行でデータフレームになる
+  Road_attr_df <- bind_rows(Road_attr_df, now_df)
+}
+```
+
+`sfc`も全道路属性をひとまとめにする．
+リストに格納する．
+```{r results=F, warning=F, message=F}
+# 空のリストに放り込む
+Road_sfc <- list()
+
+for (i in attr_str) {
+  now_sfc <- get(str_c(i, "_sfc")) # ここでget()すれば1行で sfc
+  Road_sfc <- c(Road_sfc, i = now_sfc)
+  
+}
+```
+
+`sf`オブジェクトをつくる．
+```{r}
+Road_sf <- st_sf(Road_attr_df, geometry = Road_sfc)
+Road_sf <- st_set_crs(Road_sf, 2449) # 本当は上のやつでいっしょにしたい
+```
+
+道路属性ごとに色分けして図化する．
+```{r}
+mapview(nanao) +
+  mapview(Road_sf,
+          zcol = "highway")
+```
+
 
 # 土砂災害警戒区域状に限定する
 
