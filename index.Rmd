@@ -193,6 +193,65 @@ mapview(nanao) +
 ```
 
 
-# 土砂災害警戒区域状に限定する
+# 土砂災害警戒区域上に限定する
+highway属性をすべて有する道路オブジェクト`Road_sf`が作られた．
+土砂災害警戒区域の領域に含まれる道路延長の算出のため，`Road_sf`をこの領域内だけに限定したオブジェクトをさらに作成する．
+土砂災害警戒区域の`sf`オブジェクトは`sediment_nanao`である．
+```{r}
+Road_sedi <- st_intersection(sediment_nanao, Road_sf)
+```
+
+`bbox`をいきなりでなく，`sfc`でよい？？
+```{r}
+p1 <- st_point(c(136.951, 37.001))
+p2 <- st_point(c(136.980, 37.025))
+interest_sfc <- st_sfc(p1, p2, crs = 4326)
+interest_sfc <- st_transform(interest_sfc, 2449)
+interest_sfc
+```
+
+特定の範囲のみを拡大して表示する．
+```{r}
+tm_shape(nanao, bbox = interest_sfc) +
+  tm_polygons() +
+tm_shape(sediment_nanao) +
+  tm_polygons(col = "red") +
+tm_shape(Road_sf) +
+  tm_lines() +
+tm_shape(Road_sedi) +
+  tm_lines(lwd = 5)
+```
+
 
 # 距離を算出する
+ラインオブジェクトの長さの算出は`st_length()`で実施する．
+```{r}
+# 全道路延長の算出
+Road_sf <- Road_sf %>%
+  mutate(road_length = st_length(Road_sf))
+# highway属性ごとに集約して算出
+Road_sf_sum <- st_set_geometry(Road_sf, NULL) %>%
+  group_by(highway) %>%
+  summarise(ALL = sum(road_length))
+
+# 土砂災害警戒区域上の道路延長の算出
+Road_sedi <- Road_sedi %>%
+  mutate(road_length = st_length(Road_sedi))
+# highway属性ごとに集約して算出
+Road_sedi_sum <- st_set_geometry(Road_sedi, NULL) %>%
+  group_by(highway) %>%
+  summarise(sedi = sum(road_length))
+```
+
+土砂災害区域に含まれる道路延長は全道路延長の何パーセントに相当するか．
+```{r}
+Road_sedi_sum$sedi / Road_sf_sum$ALL * 100
+```
+
+表形式で整理する．
+```{r}
+full_join(Road_sedi_sum, Road_sf_sum) %>%
+  mutate(ratio = round(sedi/ALL*100,2)) %>%
+  knitr::kable()
+```
+
