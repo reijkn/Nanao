@@ -27,17 +27,16 @@ library(mapview)
 ```
 
 ## 国土数値情報から
-石川県のやつについて，以下を読み込む．
+石川県のものについて，以下を読み込む．
 
  - 行政区域：N03~
- - 緊急輸送道路：N10-15~
  - 土砂災害警戒区域：A33-17~
 
 コードは以下のとおりである．
 ```{r message=F, results=F}
 # 日本語を扱うのでCP932でのエンコードを忘れない
 isikawa <- st_read("N03-170101_17_GML/N03-17_17_170101.shp", options = "ENCODING=CP932", stringsAsFactors=F)
-emergency <- st_read("N10-15_17_GML/N10-15_17.shp", options = "ENCODING=CP932", stringsAsFactors=F)
+# emergency <- st_read("N10-15_17_GML/N10-15_17.shp", options = "ENCODING=CP932", stringsAsFactors=F) 不使用
 sediment <- st_read("A33-17_17_GML/A33-17_17_GML/A33-17_17Polygon.shp", options = "ENCODING=CP932", stringsAsFactors=F)
 ```
 
@@ -49,30 +48,31 @@ nanao <- isikawa %>%
 ```
 
 行政区域を七尾市のみに絞ったものができた．
-このポリゴン上で，道路とか土砂災害警戒区域を絞り込む．
+このポリゴン上で土砂災害警戒区域を絞り込む．
 ```{r message=F, warning=F}
-emergency_nanao <- st_intersection(nanao, emergency)
+#emergency_nanao <- st_intersection(nanao, emergency)
 sediment_nanao <- st_intersection(nanao, sediment)
 ```
 
 そして投影座標系をEPSG2449とする．
 ```{r}
 nanao <- st_transform(nanao, 2449)
-emergency_nanao <- st_transform(emergency_nanao, 2449)
+#emergency_nanao <- st_transform(emergency_nanao, 2449)
 sediment_nanao <- st_transform(sediment_nanao, 2449)
 ```
 
 `mapview()`を使ってインタラクティブに確認する．
-車線名（国道n号など）に応じて道路の色を変更する．
 ```{r}
 mapview(nanao) +
-  mapview(emergency_nanao,
-          zcol = "N10_004")
-#colnames(emergency_nanao)
+  mapview(sediment_nanao)
 ```
 
 ## openstreetmapから
-七尾市周辺のbboxについて，以下を読み込む．
+openstreetmapのapiを使用して七尾市の道路情報を取得する．
+このapiを使えば指定した矩形範囲内の道路情報を得ることができる．
+ただし対象とする範囲が広すぎる場合は取得まで時間がかかりすぎることがある．
+今回は国道や市道などの種別ごとに取得することで，一度に得るオブジェクトの数を減らすことで対処する．
+国道や市道などの属性は下のような名称となる．
 
  - morotway
  - trunk
@@ -82,11 +82,12 @@ mapview(nanao) +
  - unclassified
  - residential
 
-openstreetmapのapiをつかう．
-pythonのラッパーがあるので，それを使用する．
-Rからpythonを呼び出すにはこのパッケージをつかう．
 
-bboxの範囲は`(36.964677, 136.772596,37.198499, 137.070257)`である．
+矩形範囲は緯度経度での指定となる．
+七尾市を囲む範囲は`(36.964677, 136.772596,37.198499, 137.070257)`のようになる．
+
+openstreetmapのapiについてはpythonでのラッパーがあるのでそれを使用する．
+Rからpythonを呼び出すには`reticulate`パッケージをつかう．
 pythonを使う下準備は次の通りとなる．
 
 ```{r}
@@ -120,7 +121,7 @@ for (i in attr_str) {
 }
 ```
 
-バウンディボックスは矩形であり，七尾市の外側の道路も取得している．
+バウンディングボックスは矩形であり，七尾市の外側の道路も取得している．
 これを七尾市上のみに絞り込む．
 ```{r results=F, warning=F, message=F}
 for (i in attr_str) {
@@ -131,7 +132,7 @@ for (i in attr_str) {
 
 ```
 
-最終的に，全道路属性が1つのデータフレームにまとまっている`sf`オブジェクトを生成する．
+最終的には全道路属性が1つのデータフレームにまとまっている`sf`オブジェクトを生成する．
 現時点ではまだ，道路属性ごとに異なる`sf`オブジェクトである．
 これを以下の手順でひとまとめにする．
 
