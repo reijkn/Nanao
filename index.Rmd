@@ -27,10 +27,10 @@ library(mapview)
 ```
 
 ## 国土数値情報から
-石川県のものについて，以下を読み込む．
+国土数値情報より石川県のデータに関して以下を読み込む．
 
- - 行政区域：N03~
- - 土砂災害警戒区域：A33-17~
+ - 行政区域データ：N03~，(http://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v2_3.html)
+ - 土砂災害警戒区域：A33-17~，(http://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-A33-v1_3.html)
 
 コードは以下のとおりである．
 ```{r message=F, results=F}
